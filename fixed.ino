@@ -83,7 +83,7 @@ void IRAM_ATTR onTimer() {
   filter_y1 = filter_y_sample;
 
   // Scale and shift the output sample to get the raw analog value
-  y_raw = (filter_y_sample * 2048) + 2048;
+  y_raw = constrain((int)(filter_y_sample * 128) + 128, 0, 255);
 
   // Write the raw analog value to the DAC output
   dacWrite(AUDIO_OUT, y_raw);
@@ -98,7 +98,7 @@ void setup() {
   analogSetAttenuation(ADC_11db); // Set the attenuation to 11 dB
 
   // Initialize the DAC output
-  dacWrite(AUDIO_OUT, 2048); // Set the initial value to the mid-point
+  dacWrite(AUDIO_OUT, 128); // Set the initial value to the mid-point (8-bit DAC)
 
   // Initialize the timer
   timer = timerBegin(0, 80, true); // Use timer 0 with prescaler 80 (1 MHz)

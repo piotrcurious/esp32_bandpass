@@ -49,7 +49,7 @@ void setup() {
   // Initialize the filter variables
   x0 = x1 = x2 = 0;
   y0 = y1 = y2 = 0;
-  fc = 1000; // Initial center frequency
+  fc = 1000.1; // Initial center frequency
   bw = fc / SEMITONE; // Initial bandwidth
   q = fc / bw; // Initial Q factor
   k = tan(PI * fc / FS); // Initial frequency warping constant
@@ -80,35 +80,38 @@ void loop() {
   }
 
   // Update the filter parameters if the frequency or Q factor has changed
-  if (freq != fc || q_factor != q) {
+  if (std::abs(freq - fc) > 0.1 || std::abs(q_factor - q) > 0.01) {
     // Update the center frequency and Q factor
     fc = freq;
     q = q_factor;
 
-    // Update the bandwidth
-    bw = fc / q;
-
-    // Update the frequency warping constant
-    k = tan(PI * fc / FS);
-
     // Update the filter coefficients using the bilinear transform method
-    b0 = k * k / (k * k + k / q + 1);
-    b1 = 2 * b0;
-    b2 = b0;
-    a1 = 2 * (k * k - 1) / (k * k + k / q + 1);
-    a2 = (k * k - k / q + 1) / (k * k + k / q + 1);
+    // Standard Bandpass Filter coefficients (Constant Peak Gain)
+    // Reference: https://cycling74.com/forums/rbj-audio-eq-cookbook
+    float omega = 2.0 * PI * fc / FS;
+    float alpha = sin(omega) / (2.0 * q);
+    float cosw = cos(omega);
+    float norm = 1.0 / (1.0 + alpha);
+    b0 = alpha * norm;
+    b1 = 0;
+    b2 = -alpha * norm;
+    a1 = -2.0 * cosw * norm;
+    a2 = (1.0 - alpha) * norm;
   }
 
   // Apply the filter to the input sample
   x0 = audio; // Store the current input sample
-  y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Calculate the current output sample
+  float current_y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Calculate the current output sample
+
+  // Update the filter states
   x2 = x1; // Shift the input samples
   x1 = x0;
   y2 = y1; // Shift the output samples
-  y1 = y0;
+  y1 = current_y0;
+  y0 = current_y0;
 
   // Map the output sample to the DAC range
-  int audio_out = fmap(y0, -1.0, 1.0, 0, 255);
+  int audio_out = constrain((int)fmap(y0, -1.0, 1.0, 0, 255), 0, 255);
 
   // Write the output sample to the DAC
   dacWrite(AUDIO_OUT, audio_out);

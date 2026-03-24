@@ -63,6 +63,7 @@ void loop() {
 
   // Calculate the filter coefficients using the bilinear transform method
   // Reference: [Arduino Tutorial: Simple High-pass, Band-pass and Band-stop Filtering](https://www.norwegiancreations.com/2016/03/arduino-tutorial-simple-high-pass-band-pass-and-band-stop-filtering/)
+  centerFreq = freq;
   float omega = 2 * PI * centerFreq / SAMPLE_RATE;
   float alpha = sin(omega) / (2 * Q);
   float cosw = cos(omega);

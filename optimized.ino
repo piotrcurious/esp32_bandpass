@@ -29,6 +29,11 @@ float Q; // Q factor
 // Declare the quantization variable
 int q; // Number of quantization levels
 
+// Helper for float mapping
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Declare the input and output variables
 int in; // Input value
 int out; // Output value
@@ -53,9 +58,9 @@ void setup() {
 void loop() {
   // Read the analog input values
   in = analogRead(AUDIO_IN);
-  f = map(analogRead(FREQ_IN), 0, 1023, 20, 20000); // Map the frequency from 20 Hz to 20 kHz
-  q = map(analogRead(QUANT_IN), 0, 1023, 2, 256); // Map the quantization levels from 2 to 256
-  Q = (analogRead(Q_IN) / 1023.0) * (10 - 0.5) + 0.5; // Map the Q factor from 0.5 to 10
+  f = fmap(analogRead(FREQ_IN), 0, 4095, 20, 20000); // Map the frequency from 20 Hz to 20 kHz
+  q = fmap(analogRead(QUANT_IN), 0, 4095, 2, 256); // Map the quantization levels from 2 to 256
+  Q = fmap(analogRead(Q_IN), 0, 4095, 0.5, 10); // Map the Q factor from 0.5 to 10
 
   // Quantize the input value
   in = round(in / (1024 / q)) * (1024 / q);
@@ -71,6 +76,17 @@ void loop() {
   a[1] = -2 * cos(w0) * norm; // a1 coefficient
   a[2] = (1 - alpha) * norm; // a2 coefficient
 
+  // Apply the filter
+  // y[0] = b[0]*x[0] + b[1]*x[1] + b[2]*x[2] - a[1]*y[1] - a[2]*y[2]
+  // a[0] is already 1, so we don't divide
+  float current_y = 0;
+  for (int i = 0; i <= N; i++) {
+    current_y += b[i] * x[i];
+  }
+  for (int i = 1; i <= N; i++) {
+    current_y -= a[i] * y[i];
+  }
+
   // Shift the filter states
   for (int i = N; i > 0; i--) {
     x[i] = x[i-1];
@@ -78,16 +94,11 @@ void loop() {
   }
 
   // Update the filter states
-  x[0] = in;
-  y[0] = 0;
-
-  // Apply the filter
-  for (int i = 0; i <= N; i++) {
-    y[0] += b[i] * x[i] - a[i] * y[i];
-  }
+  x[0] = in - 2048; // Center input signal (12-bit ADC)
+  y[0] = current_y;
 
   // Scale the output value
-  out = map(y[0], -512, 512, 0, 255);
+  out = constrain((int)y[0] + 128, 0, 255);
 
   // Write the output value to the DAC
   dacWrite(AUDIO_OUT, out);

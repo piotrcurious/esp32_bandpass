@@ -19,10 +19,10 @@
 #define RATE_MIN 8000 // Minimum sampling rate in Hz
 #define RATE_MAX 32000 // Maximum sampling rate in Hz
 
-// Define the scaling factors for the analog inputs
-#define FREQ_SCALE ((FREQ_MAX - FREQ_MIN) / 1023.0) // Frequency scaling factor
-#define QUANT_SCALE ((QUANT_MAX - QUANT_MIN) / 1023.0) // Quantization scaling factor
-#define RATE_SCALE ((RATE_MAX - RATE_MIN) / 1023.0) // Sampling rate scaling factor
+// Define the scaling factors for the analog inputs (12-bit ADC)
+#define FREQ_SCALE ((FREQ_MAX - FREQ_MIN) / 4095.0) // Frequency scaling factor
+#define QUANT_SCALE ((QUANT_MAX - QUANT_MIN) / 4095.0) // Quantization scaling factor
+#define RATE_SCALE ((RATE_MAX - RATE_MIN) / 4095.0) // Sampling rate scaling factor
 
 // Define the filter coefficients
 float b0, b1, b2; // Feedforward coefficients
@@ -65,19 +65,23 @@ void loop() {
   // Quantize the frequency to the nearest semitone
   freq = round(log(freq / FREQ_MIN) / log(SEMITONE)) * SEMITONE * FREQ_MIN;
 
+  // Constrain frequency to be safe from Nyquist
+  if (freq > rate * 0.45) freq = rate * 0.45;
+
   // Calculate the angular frequency and the bandwidth parameter of the bandpass filter
   omega = 2 * PI * freq / rate;
   alpha = sin(omega) / (2 * Q);
 
   // Calculate the filter coefficients
-  b0 = alpha;
+  float norm = 1.0 / (1.0 + alpha);
+  b0 = alpha * norm;
   b1 = 0;
-  b2 = -alpha;
-  a1 = -2 * cos(omega);
-  a2 = 1 - alpha;
+  b2 = -alpha * norm;
+  a1 = -2.0 * cos(omega) * norm;
+  a2 = (1.0 - alpha) * norm;
 
   // Apply the bandpass filter to the audio input
-  float x0 = (audio_in - 512) / 512.0; // Normalize the audio input to [-1, 1]
+  float x0 = (audio_in - 2048) / 2048.0; // Normalize the audio input (12-bit) to [-1, 1]
   float y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Filter the audio input
 
   // Update the filter state variables
