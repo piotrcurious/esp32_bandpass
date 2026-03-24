@@ -15,6 +15,11 @@
 #define MAX_Q 10 // Maximum Q factor
 #define MIN_Q 0.1 // Minimum Q factor
 
+// Helper for float mapping
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Declare some global variables
 float centerFreq; // Center frequency of the bandpass filter
 float bandwidth; // Bandwidth of the bandpass filter
@@ -45,10 +50,10 @@ void loop() {
   int qIn = analogRead(Q_IN); // Q input value (0-4095)
 
   // Map the analog inputs to the desired ranges
-  float audio = map(audioIn, 0, 4095, -1, 1); // Audio input signal (-1 to 1)
-  float freq = map(freqIn, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency input signal (MIN_FREQ to MAX_FREQ)
-  float quant = map(quantIn, 0, 4095, 0, 12); // Quantization input signal (0 to 12)
-  Q = map(qIn, 0, 4095, MIN_Q, MAX_Q); // Q input signal (MIN_Q to MAX_Q)
+  float audio = fmap(audioIn, 0, 4095, -1.0, 1.0); // Audio input signal (-1 to 1)
+  float freq = fmap(freqIn, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency input signal (MIN_FREQ to MAX_FREQ)
+  float quant = fmap(quantIn, 0, 4095, 0, 12); // Quantization input signal (0 to 12)
+  Q = fmap(qIn, 0, 4095, MIN_Q, MAX_Q); // Q input signal (MIN_Q to MAX_Q)
 
   // Quantize the frequency input to the nearest semitone
   freq = round(log(freq / MIN_FREQ) / log(SEMITONE)) * SEMITONE * MIN_FREQ;
@@ -77,7 +82,7 @@ void loop() {
   y1 = y;
 
   // Map the filter output to the DAC range
-  int audioOut = map(y, -1, 1, 0, 255);
+  int audioOut = fmap(y, -1.0, 1.0, 0, 255);
 
   // Write the filter output to the DAC pin
   dacWrite(AUDIO_OUT, audioOut);

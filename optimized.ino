@@ -55,7 +55,7 @@ void loop() {
   in = analogRead(AUDIO_IN);
   f = map(analogRead(FREQ_IN), 0, 1023, 20, 20000); // Map the frequency from 20 Hz to 20 kHz
   q = map(analogRead(QUANT_IN), 0, 1023, 2, 256); // Map the quantization levels from 2 to 256
-  Q = map(analogRead(Q_IN), 0, 1023, 0.5, 10); // Map the Q factor from 0.5 to 10
+  Q = (analogRead(Q_IN) / 1023.0) * (10 - 0.5) + 0.5; // Map the Q factor from 0.5 to 10
 
   // Quantize the input value
   in = round(in / (1024 / q)) * (1024 / q);

@@ -25,11 +25,11 @@
 #define RATE_SCALE ((RATE_MAX - RATE_MIN) / 4095.0)
 
 // Declare the filter coefficients and state variables
-float b0, b1, b2, a1, a2; // Coefficients
-float x1, x2, y1, y2; // State variables
+float filter_b0, filter_b1, filter_b2, filter_a1, filter_a2; // Coefficients
+float filter_x1, filter_x2, filter_y1, filter_filter_y2; // State variables
 
 // Declare the input and output variables
-float x, y; // Input and output samples
+float filter_x_sample, filter_y_sample; // Input and output samples
 int x_raw, y_raw; // Raw analog values
 
 // Declare the frequency, quantization and sampling rate variables
@@ -60,30 +60,30 @@ void IRAM_ATTR onTimer() {
   float alpha = sin(omega) / (2 * Q); // Alpha parameter
   float beta = cos(omega); // Beta parameter
   float gamma = 1 + alpha; // Gamma parameter
-  b0 = alpha / gamma; // Feedforward coefficient 0
-  b1 = 0; // Feedforward coefficient 1
-  b2 = -alpha / gamma; // Feedforward coefficient 2
-  a1 = -2 * beta / gamma; // Feedback coefficient 1
-  a2 = (1 - alpha) / gamma; // Feedback coefficient 2
+  filter_b0 = alpha / gamma; // Feedforward coefficient 0
+  filter_b1 = 0; // Feedforward coefficient 1
+  filter_b2 = -alpha / gamma; // Feedforward coefficient 2
+  filter_a1 = -2 * beta / gamma; // Feedback coefficient 1
+  filter_a2 = (1 - alpha) / gamma; // Feedback coefficient 2
 
   // Read the raw analog value for the audio input
   x_raw = analogRead(AUDIO_IN);
 
   // Scale and center the raw value to get the input sample
-  x = (x_raw - 2048) / 2048.0;
+  filter_x_sample = (x_raw - 2048) / 2048.0;
 
   // Apply the filter to the input sample using the difference equation
   // Reference: [Digital Filters for Everyone](https://forum.arduino.cc/t/digital-high-pass-or-band-pass-filter-for-arduino/934118)
-  y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+  filter_y_sample = filter_b0 * filter_x_sample + filter_b1 * filter_x1 + filter_b2 * filter_x2 - filter_a1 * filter_y1 - filter_a2 * filter_filter_y2;
 
   // Update the state variables
-  x2 = x1;
-  x1 = x;
-  y2 = y1;
-  y1 = y;
+  filter_x2 = filter_x1;
+  filter_x1 = filter_x_sample;
+  filter_filter_y2 = filter_y1;
+  filter_y1 = filter_y_sample;
 
   // Scale and shift the output sample to get the raw analog value
-  y_raw = (y * 2048) + 2048;
+  y_raw = (filter_y_sample * 2048) + 2048;
 
   // Write the raw analog value to the DAC output
   dacWrite(AUDIO_OUT, y_raw);

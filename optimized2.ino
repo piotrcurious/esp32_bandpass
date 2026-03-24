@@ -13,16 +13,21 @@
 // Define the semitone ratio
 #define SEMITONE 1.0594630943592953 // 12th root of 2
 
+// Helper for float mapping
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Define the filter coefficients
 // These are calculated using the bilinear transform method
 // for a second-order bandpass filter with a center frequency of 1 kHz
 // and a bandwidth of one semitone at FS = 44100 Hz
 // You can use this tool to calculate different coefficients: [1](https://www.norwegiancreations.com/2016/03/arduino-tutorial-simple-high-pass-band-pass-and-band-stop-filtering/)
-#define B0 0.001227 // Feedforward coefficient 0
-#define B1 0 // Feedforward coefficient 1
-#define B2 -0.001227 // Feedforward coefficient 2
-#define A1 -1.995546 // Feedback coefficient 1
-#define A2 0.995546 // Feedback coefficient 2
+#define B_COEFF0 0.001227 // Feedforward coefficient 0
+#define B_COEFF1 0 // Feedforward coefficient 1
+#define B_COEFF2 -0.001227 // Feedforward coefficient 2
+#define A_COEFF1 -1.995546 // Feedback coefficient 1
+#define A_COEFF2 0.995546 // Feedback coefficient 2
 
 // Declare the filter variables
 float x0, x1, x2; // Input samples
@@ -48,11 +53,11 @@ void setup() {
   bw = fc / SEMITONE; // Initial bandwidth
   q = fc / bw; // Initial Q factor
   k = tan(PI * fc / FS); // Initial frequency warping constant
-  b0 = B0; // Initial feedforward coefficient 0
-  b1 = B1; // Initial feedforward coefficient 1
-  b2 = B2; // Initial feedforward coefficient 2
-  a1 = A1; // Initial feedback coefficient 1
-  a2 = A2; // Initial feedback coefficient 2
+  b0 = B_COEFF0; // Initial feedforward coefficient 0
+  b1 = B_COEFF1; // Initial feedforward coefficient 1
+  b2 = B_COEFF2; // Initial feedforward coefficient 2
+  a1 = A_COEFF1; // Initial feedback coefficient 1
+  a2 = A_COEFF2; // Initial feedback coefficient 2
 }
 
 void loop() {
@@ -63,10 +68,10 @@ void loop() {
   int q_in = analogRead(Q_IN); // Read the Q factor input
 
   // Map the analog inputs to the desired ranges
-  float audio = map(audio_in, 0, 4095, -1, 1); // Map the audio input to [-1, 1]
-  float freq = map(freq_in, 0, 4095, 20, 20000); // Map the frequency input to [20, 20000] Hz
-  float quant = map(quant_in, 0, 4095, 0, 1); // Map the quantization input to [0, 1]
-  float q_factor = map(q_in, 0, 4095, 0.5, 20); // Map the Q factor input to [0.5, 20]
+  float audio = fmap(audio_in, 0, 4095, -1.0, 1.0); // Map the audio input to [-1, 1]
+  float freq = fmap(freq_in, 0, 4095, 20, 20000); // Map the frequency input to [20, 20000] Hz
+  float quant = fmap(quant_in, 0, 4095, 0, 1); // Map the quantization input to [0, 1]
+  float q_factor = fmap(q_in, 0, 4095, 0.5, 20); // Map the Q factor input to [0.5, 20]
 
   // Quantize the frequency input if needed
   if (quant > 0.5) {
@@ -103,7 +108,7 @@ void loop() {
   y1 = y0;
 
   // Map the output sample to the DAC range
-  int audio_out = map(y0, -1, 1, 0, 255);
+  int audio_out = fmap(y0, -1.0, 1.0, 0, 255);
 
   // Write the output sample to the DAC
   dacWrite(AUDIO_OUT, audio_out);

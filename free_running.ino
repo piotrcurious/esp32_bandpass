@@ -27,6 +27,11 @@ void initFilter() {
   updateFilter();
 }
 
+// Helper for float mapping
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Update the filter coefficients
 void updateFilter() {
   // Read the analog input values
@@ -35,9 +40,9 @@ void updateFilter() {
   int qVal = analogRead(Q_IN); // Q factor value (0-4095)
 
   // Map the analog values to the filter parameters
-  float freq = map(freqVal, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency in Hz
-  float quant = map(quantVal, 0, 4095, 0, 12); // Quantization in semitones
-  float Q = map(qVal, 0, 4095, MIN_Q, MAX_Q); // Q factor
+  float freq = fmap(freqVal, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency in Hz
+  float quant = fmap(quantVal, 0, 4095, 0, 12); // Quantization in semitones
+  float Q = fmap(qVal, 0, 4095, MIN_Q, MAX_Q); // Q factor
 
   // Quantize the frequency to the nearest semitone
   freq = round(log(freq / MIN_FREQ) / log(SEMITONE)) * SEMITONE * MIN_FREQ;
@@ -71,7 +76,7 @@ void processAudio() {
   y1 = y0; // Shift y[n] to y[n-1]
 
   // Map the filter output value to the DAC range
-  int y = map(y0, -2048, 2047, 0, 255); // DAC output value (0-255)
+  int y = fmap(y0, -2048, 2047, 0, 255); // DAC output value (0-255)
 
   // Write the DAC output value
   dacWrite(AUDIO_OUT, y); // Write to the DAC pin

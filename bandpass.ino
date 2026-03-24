@@ -14,8 +14,8 @@
 // These are calculated using the Bessel filter design from https://github.com/MartinBloedorn/libFilter
 // The filter is a band-pass with a center frequency of 1000 Hz and a bandwidth of 177 Hz (one semitone)
 // The coefficients are scaled by 2^15 to avoid floating point arithmetic
-const int16_t b[FILTER_ORDER + 1] = {0, 0, -64, 0, 448, 0, -1344, 0};
-const int16_t a[FILTER_ORDER + 1] = {32768, 0, -131072, 0, 262144, 0, -327680, 0};
+int32_t b[FILTER_ORDER + 1] = {0, 0, -64, 0, 448, 0, -1344, 0};
+const int32_t a[FILTER_ORDER + 1] = {32768, 0, -131072, 0, 262144, 0, -327680, 0};
 
 // Define the filter state variables
 int16_t x[FILTER_ORDER + 1] = {0}; // input samples
@@ -73,14 +73,18 @@ int16_t updateFilter(int16_t input) {
   }
   
   // Calculate the new output sample using the filter coefficients
-  // Use long integers to avoid overflow
-  int32_t sum = 0;
+  // Use long long integers to avoid overflow
+  int64_t sum = 0;
   for (int i = 0; i <= FILTER_ORDER; i++) {
-    sum += (int32_t)b[i] * x[i] - (int32_t)a[i] * y[i];
+    sum += (int64_t)b[i] * x[i];
+  }
+  for (int i = 1; i <= FILTER_ORDER; i++) {
+    sum -= (int64_t)a[i] * y[i];
   }
   
   // Scale the output sample back to 16 bits and store it
-  y[0] = (int16_t)(sum >> 15);
+  // Assuming a[0] is 32768 (2^15)
+  y[0] = (int16_t)(sum / a[0]);
   
   // Return the output sample
   return y[0];
@@ -110,10 +114,10 @@ void IRAM_ATTR onTimer() {
   for (int i = 0; i <= FILTER_ORDER; i++) {
     if (i % 2 == 0) {
       // Even coefficients
-      b[i] = (int16_t)((1 + depth * sin(i * omega)) * 32768);
+      b[i] = (int32_t)((1 + depth * sin(i * omega)) * 32768);
     } else {
       // Odd coefficients
-      b[i] = (int16_t)((1 + depth * cos(i * omega)) * 32768);
+      b[i] = (int32_t)((1 + depth * cos(i * omega)) * 32768);
     }
   }
   
