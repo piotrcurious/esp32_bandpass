@@ -30,8 +30,8 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
 #define A_COEFF2 0.995546 // Feedback coefficient 2
 
 // Declare the filter variables
-float x0, x1, x2; // Input samples
-float y0, y1, y2; // Output samples
+float filter_x0, filter_x1, filter_x2; // Input samples
+float filter_y0, filter_y1, filter_y2; // Output samples
 float fc; // Center frequency
 float bw; // Bandwidth
 float q; // Q factor
@@ -47,10 +47,10 @@ void setup() {
   dacWrite(AUDIO_OUT, 0);
 
   // Initialize the filter variables
-  x0 = x1 = x2 = 0;
-  y0 = y1 = y2 = 0;
-  fc = 0;
-  q = 0;
+  filter_x0 = filter_x1 = filter_x2 = 0;
+  filter_y0 = filter_y1 = filter_y2 = 0;
+  fc = -1.0f;
+  q = -1.0f;
 }
 
 void loop() {
@@ -61,15 +61,15 @@ void loop() {
   int q_in = analogRead(Q_IN); // Read the Q factor input
 
   // Map the analog inputs to the desired ranges
-  float audio = fmap(audio_in, 0, 4095, -1.0, 1.0); // Map the audio input to [-1, 1]
+  float audio = (audio_in - 2048) / 2048.0f; // Map the audio input to [-1, 1]
   float freq = fmap(freq_in, 0, 4095, 20, 20000); // Map the frequency input to [20, 20000] Hz
   float quant = fmap(quant_in, 0, 4095, 0, 1); // Map the quantization input to [0, 1]
   float q_factor = fmap(q_in, 0, 4095, 0.5, 20); // Map the Q factor input to [0.5, 20]
 
   // Quantize the frequency input if needed
   if (quant > 0.5) {
-    // Quantize the frequency to the nearest semitone
-    freq = round(log(freq / 440) / log(SEMITONE)) * SEMITONE * 440;
+    // Quantize the frequency to the nearest semitone (base A4 = 440Hz)
+    freq = pow(SEMITONE, round(log(freq / 440.0f) / log(SEMITONE))) * 440.0f;
   }
 
   // Update the filter parameters if the frequency or Q factor has changed
@@ -81,28 +81,30 @@ void loop() {
     // Standard Bandpass Filter coefficients (Constant Peak Gain)
     // Reference: https://cycling74.com/forums/rbj-audio-eq-cookbook
     float omega = 2.0 * PI * fc / FS;
+    // For bandpass, alpha can be defined by Q or bandwidth.
+    // Let's use the standard Q-based alpha.
     float alpha = sin(omega) / (2.0 * q);
     float cosw = cos(omega);
     float norm = 1.0 / (1.0 + alpha);
     b0 = alpha * norm;
     b1 = 0;
     b2 = -alpha * norm;
-    a1 = -2.0 * cosw * norm;
-    a2 = (1.0 - alpha) * norm;
+    a1 = -2.0f * cosw * norm;
+    a2 = (1.0f - alpha) * norm;
   }
 
   // Apply the filter to the input sample
-  x0 = audio; // Store the current input sample
-  y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Calculate the current output sample
+  filter_x0 = audio; // Store the current input sample
+  filter_y0 = b0 * filter_x0 + b1 * filter_x1 + b2 * filter_x2 - a1 * filter_y1 - a2 * filter_y2; // Calculate the current output sample
 
   // Update the filter states
-  x2 = x1; // Shift the input samples
-  x1 = x0;
-  y2 = y1; // Shift the output samples
-  y1 = y0;
+  filter_x2 = filter_x1; // Shift the input samples
+  filter_x1 = filter_x0;
+  filter_y2 = filter_y1; // Shift the output samples
+  filter_y1 = filter_y0;
 
   // Map the output sample to the DAC range
-  int audio_out = (int)constrain(y0 * 127 + 128, 0, 255);
+  int audio_out = (int)constrain(filter_y0 * 127.0f + 128.0f, 0, 255);
 
   // Write the output sample to the DAC
   dacWrite(AUDIO_OUT, audio_out);
@@ -110,5 +112,5 @@ void loop() {
   // Print the input and output samples to the serial monitor
   Serial.print(audio);
   Serial.print(",");
-  Serial.println(y0);
+  Serial.println(filter_y0);
 }

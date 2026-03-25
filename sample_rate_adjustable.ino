@@ -63,7 +63,7 @@ void loop() {
   rate = RATE_MIN + rate_in * RATE_SCALE; // Scale the sampling rate input
 
   // Quantize the frequency to the nearest semitone
-  freq = round(log(freq / FREQ_MIN) / log(SEMITONE)) * SEMITONE * FREQ_MIN;
+  freq = pow(SEMITONE, round(log(freq / FREQ_MIN) / log(SEMITONE))) * FREQ_MIN;
 
   // Constrain frequency to be safe from Nyquist
   if (freq > rate * 0.45) freq = rate * 0.45;
@@ -91,7 +91,7 @@ void loop() {
   y1 = y0;
 
   // Scale the filter output to [0, 255]
-  int audio_out = constrain((y0 + 1) * 128, 0, 255);
+  int audio_out = (int)constrain(y0 * 127.0f + 128.0f, 0, 255);
 
   // Write the filter output to the DAC
   dacWrite(AUDIO_OUT, audio_out);

@@ -32,28 +32,28 @@ int16_t y[FILTER_ORDER + 1] = {0}; // output samples
 // The frequency value is quantized to the nearest semitone or the specified quantization level
 int16_t mapFreq(int16_t analogValue, int16_t quantValue) {
   // Map the analog value to a linear frequency value between FREQ_MIN and FREQ_MAX
-  int16_t freq = map(analogValue, 0, 4095, FREQ_MIN, FREQ_MAX);
+  float freq = (float)map(analogValue, 0, 4095, FREQ_MIN, FREQ_MAX);
   
   // Map the quant value to a quantization level between QUANT_MIN and QUANT_MAX
   int16_t quant = map(quantValue, 0, 4095, QUANT_MIN, QUANT_MAX);
   
   // Calculate the frequency ratio of one semitone
-  float ratio = pow(2, 1.0 / 12.0);
+  float ratio = pow(2.0f, 1.0f / 12.0f);
   
   // Calculate the base frequency of the lowest semitone in the range
-  float base = FREQ_MIN / pow(ratio, QUANT_MAX - 1);
+  float base = (float)FREQ_MIN / pow(ratio, (float)QUANT_MAX - 1.0f);
   
   // Calculate the number of semitones from the base frequency to the linear frequency
   float n = log(freq / base) / log(ratio);
   
   // Round the number of semitones to the nearest quantization level
-  n = round(n / quant) * quant;
+  n = round(n / (float)quant) * (float)quant;
   
   // Calculate the quantized frequency value
-  freq = base * pow(ratio, n);
+  float quantizedFreq = base * pow(ratio, n);
   
   // Return the quantized frequency value
-  return freq;
+  return (int16_t)quantizedFreq;
 }
 
 // Define the filter update function

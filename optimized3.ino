@@ -50,13 +50,13 @@ void loop() {
   int qIn = analogRead(Q_IN); // Q input value (0-4095)
 
   // Map the analog inputs to the desired ranges
-  float audio = fmap(audioIn, 0, 4095, -1.0, 1.0); // Audio input signal (-1 to 1)
+  float audio = (audioIn - 2048) / 2048.0f; // Audio input signal (-1 to 1)
   float freq = fmap(freqIn, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency input signal (MIN_FREQ to MAX_FREQ)
   float quant = fmap(quantIn, 0, 4095, 0, 12); // Quantization input signal (0 to 12)
   Q = fmap(qIn, 0, 4095, MIN_Q, MAX_Q); // Q input signal (MIN_Q to MAX_Q)
 
   // Quantize the frequency input to the nearest semitone
-  freq = round(log(freq / MIN_FREQ) / log(SEMITONE)) * SEMITONE * MIN_FREQ;
+  freq = pow(SEMITONE, round(log(freq / MIN_FREQ) / log(SEMITONE))) * MIN_FREQ;
 
   // Calculate the bandwidth of the bandpass filter
   bandwidth = freq * (pow(SEMITONE, 0.5) - pow(SEMITONE, -0.5));
@@ -67,12 +67,12 @@ void loop() {
   float omega = 2 * PI * centerFreq / SAMPLE_RATE;
   float alpha = sin(omega) / (2 * Q);
   float cosw = cos(omega);
-  float norm = 1 / (1 + alpha);
+  float norm = 1.0f / (1.0f + alpha);
   b0 = alpha * norm;
   b1 = 0;
   b2 = -alpha * norm;
-  a1 = -2 * cosw * norm;
-  a2 = (1 - alpha) * norm;
+  a1 = -2.0f * cosw * norm;
+  a2 = (1.0f - alpha) * norm;
 
   // Apply the filter to the audio input signal
   // Reference: [Arduino-signal-filtering-library](https://jeroendoggen.github.io/Arduino-signal-filtering-library/)
@@ -83,7 +83,7 @@ void loop() {
   y1 = y;
 
   // Map the filter output to the DAC range
-  int audioOut = fmap(y, -1.0, 1.0, 0, 255);
+  int audioOut = (int)constrain(y * 127.0f + 128.0f, 0, 255);
 
   // Write the filter output to the DAC pin
   dacWrite(AUDIO_OUT, audioOut);

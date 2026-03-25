@@ -26,7 +26,7 @@
 
 // Declare the filter coefficients and state variables
 float filter_b0, filter_b1, filter_b2, filter_a1, filter_a2; // Coefficients
-float filter_x1, filter_x2, filter_y1, filter_filter_y2; // State variables
+float filter_x1, filter_x2, filter_y1, filter_y2; // State variables
 
 // Declare the input and output variables
 float filter_x_sample, filter_y_sample; // Input and output samples
@@ -74,16 +74,16 @@ void IRAM_ATTR onTimer() {
 
   // Apply the filter to the input sample using the difference equation
   // Reference: [Digital Filters for Everyone](https://forum.arduino.cc/t/digital-high-pass-or-band-pass-filter-for-arduino/934118)
-  filter_y_sample = filter_b0 * filter_x_sample + filter_b1 * filter_x1 + filter_b2 * filter_x2 - filter_a1 * filter_y1 - filter_a2 * filter_filter_y2;
+  filter_y_sample = filter_b0 * filter_x_sample + filter_b1 * filter_x1 + filter_b2 * filter_x2 - filter_a1 * filter_y1 - filter_a2 * filter_y2;
 
   // Update the state variables
   filter_x2 = filter_x1;
   filter_x1 = filter_x_sample;
-  filter_filter_y2 = filter_y1;
+  filter_y2 = filter_y1;
   filter_y1 = filter_y_sample;
 
   // Scale and shift the output sample to get the raw analog value
-  y_raw = constrain((int)(filter_y_sample * 128) + 128, 0, 255);
+  y_raw = (int)constrain(filter_y_sample * 127.0f + 128.0f, 0, 255);
 
   // Write the raw analog value to the DAC output
   dacWrite(AUDIO_OUT, y_raw);
