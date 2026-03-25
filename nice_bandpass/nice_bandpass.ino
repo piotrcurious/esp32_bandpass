@@ -56,25 +56,26 @@ void updateFilter() {
   float Q = fmap(qVal, 0, 4095, MIN_Q, MAX_Q); // Q factor
 
   // Quantize the frequency to the nearest semitone
-  freq = round(log(freq / MIN_FREQ) / log(SEMITONE)) * SEMITONE * MIN_FREQ;
+  freq = pow(SEMITONE, round(log(freq / MIN_FREQ) / log(SEMITONE))) * MIN_FREQ;
 
   // Calculate the filter coefficients using the bilinear transform
   // Reference: [Arduino Tutorial: Simple High-pass, Band-pass and Band-stop Filtering](https://www.arduino.cc/reference/en/libraries/esp32timerinterrupt/)
   float omega = 2 * PI * freq / SAMPLE_RATE; // Angular frequency
   float alpha = sin(omega) / (2 * Q); // Alpha parameter
   float cosw = cos(omega); // Cosine of omega
-  float norm = 1 + alpha; // Normalization factor
-  b0 = alpha / norm; // B0 coefficient
+  float norm = 1.0f / (1.0f + alpha); // Normalization factor
+  b0 = alpha * norm; // B0 coefficient
   b1 = 0; // B1 coefficient
-  b2 = -alpha / norm; // B2 coefficient
-  a1 = -2 * cosw / norm; // A1 coefficient
-  a2 = (1 - alpha) / norm; // A2 coefficient
+  b2 = -alpha * norm; // B2 coefficient
+  a1 = -2.0f * cosw * norm; // A1 coefficient
+  a2 = (1.0f - alpha) * norm; // A2 coefficient
 }
 
 // Process the audio input and output the filtered signal
 void processAudio() {
   // Read the audio input value
-  int x0 = analogRead(AUDIO_IN); // Audio input value (0-4095)
+  int raw_x = analogRead(AUDIO_IN); // Audio input value (0-4095)
+  float x0 = (raw_x - 2048) / 2048.0f; // Center signal
 
   // Apply the filter equation
   // y[n] = b0 * x[n] + b1 * x[n-1] + b2 * x[n-2] - a1 * y[n-1] - a2 * y[n-2]
@@ -87,7 +88,7 @@ void processAudio() {
   filter_y1 = y0; // Shift y[n] to y[n-1]
 
   // Map the filter output value to the DAC range
-  int y = fmap(y0, -2048, 2047, 0, 255); // DAC output value (0-255)
+  int y = (int)constrain(y0 * 127.0f + 128.0f, 0, 255); // DAC output value (0-255)
 
   // Write the DAC output value
   dacWrite(AUDIO_OUT, y); // Write to the DAC pin

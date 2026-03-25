@@ -15,6 +15,11 @@
 #define MAX_Q 10 // Maximum Q factor
 #define MIN_Q 0.1 // Minimum Q factor
 
+// Helper for float mapping
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Declare some global variables
 float centerFreq; // Center frequency of the bandpass filter
 float bandwidth; // Bandwidth of the bandpass filter
@@ -45,28 +50,29 @@ void loop() {
   int qIn = analogRead(Q_IN); // Q input value (0-4095)
 
   // Map the analog inputs to the desired ranges
-  float audio = map(audioIn, 0, 4095, -1, 1); // Audio input signal (-1 to 1)
-  float freq = map(freqIn, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency input signal (MIN_FREQ to MAX_FREQ)
-  float quant = map(quantIn, 0, 4095, 0, 12); // Quantization input signal (0 to 12)
-  Q = map(qIn, 0, 4095, MIN_Q, MAX_Q); // Q input signal (MIN_Q to MAX_Q)
+  float audio = (audioIn - 2048) / 2048.0f; // Audio input signal (-1 to 1)
+  float freq = fmap(freqIn, 0, 4095, MIN_FREQ, MAX_FREQ); // Frequency input signal (MIN_FREQ to MAX_FREQ)
+  float quant = fmap(quantIn, 0, 4095, 0, 12); // Quantization input signal (0 to 12)
+  Q = fmap(qIn, 0, 4095, MIN_Q, MAX_Q); // Q input signal (MIN_Q to MAX_Q)
 
   // Quantize the frequency input to the nearest semitone
-  freq = round(log(freq / MIN_FREQ) / log(SEMITONE)) * SEMITONE * MIN_FREQ;
+  freq = pow(SEMITONE, round(log(freq / MIN_FREQ) / log(SEMITONE))) * MIN_FREQ;
 
   // Calculate the bandwidth of the bandpass filter
   bandwidth = freq * (pow(SEMITONE, 0.5) - pow(SEMITONE, -0.5));
 
   // Calculate the filter coefficients using the bilinear transform method
   // Reference: [Arduino Tutorial: Simple High-pass, Band-pass and Band-stop Filtering](https://www.norwegiancreations.com/2016/03/arduino-tutorial-simple-high-pass-band-pass-and-band-stop-filtering/)
+  centerFreq = freq;
   float omega = 2 * PI * centerFreq / SAMPLE_RATE;
   float alpha = sin(omega) / (2 * Q);
   float cosw = cos(omega);
-  float norm = 1 / (1 + alpha);
+  float norm = 1.0f / (1.0f + alpha);
   b0 = alpha * norm;
   b1 = 0;
   b2 = -alpha * norm;
-  a1 = -2 * cosw * norm;
-  a2 = (1 - alpha) * norm;
+  a1 = -2.0f * cosw * norm;
+  a2 = (1.0f - alpha) * norm;
 
   // Apply the filter to the audio input signal
   // Reference: [Arduino-signal-filtering-library](https://jeroendoggen.github.io/Arduino-signal-filtering-library/)
@@ -77,7 +83,7 @@ void loop() {
   y1 = y;
 
   // Map the filter output to the DAC range
-  int audioOut = map(y, -1, 1, 0, 255);
+  int audioOut = (int)constrain(y * 127.0f + 128.0f, 0, 255);
 
   // Write the filter output to the DAC pin
   dacWrite(AUDIO_OUT, audioOut);
