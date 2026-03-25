@@ -10,12 +10,12 @@
 #define SAMPLE_RATE 10000 // Hz
 #define FILTER_ORDER 7
 
-// Define the filter coefficients
-// These are calculated using the Bessel filter design from https://github.com/MartinBloedorn/libFilter
-// The filter is a band-pass with a center frequency of 1000 Hz and a bandwidth of 177 Hz (one semitone)
-// The coefficients are scaled by 2^15 to avoid floating point arithmetic
-int32_t b[FILTER_ORDER + 1] = {0, 0, -64, 0, 448, 0, -1344, 0};
-const int32_t a[FILTER_ORDER + 1] = {32768, 0, -131072, 0, 262144, 0, -327680, 0};
+// Define the filter parameters
+#define Q_FACTOR 10.0
+
+// Define the filter coefficients (will be updated dynamically)
+int32_t b[FILTER_ORDER + 1] = {0};
+int32_t a[FILTER_ORDER + 1] = {32768, 0};
 
 // Define the filter state variables
 int16_t x[FILTER_ORDER + 1] = {0}; // input samples
@@ -104,22 +104,23 @@ void IRAM_ATTR onTimer() {
   // Map the frequency input value to a quantized frequency value
   freqIn = mapFreq(freqIn, quantIn);
   
-  // Update the filter coefficients using the frequency value
-  // This is done by modulating the filter coefficients with a sine wave of the desired frequency
-  // The modulation depth is proportional to the filter bandwidth
-  // The modulation phase is shifted by pi/2 for the odd coefficients
-  // This method is based on https://github.com/paulh002/band-passfilter-arduino-esp32
-  float omega = 2 * PI * freqIn / SAMPLE_RATE; // angular frequency
-  float depth = 0.1; // modulation depth
-  for (int i = 0; i <= FILTER_ORDER; i++) {
-    if (i % 2 == 0) {
-      // Even coefficients
-      b[i] = (int32_t)((1 + depth * sin(i * omega)) * 32768);
-    } else {
-      // Odd coefficients
-      b[i] = (int32_t)((1 + depth * cos(i * omega)) * 32768);
-    }
-  }
+  // Calculate the filter coefficients using the bilinear transform (2nd order BP)
+  // We'll reuse the coefficients logic for a standard 2nd order filter
+  // but for simplicity here, we'll implement it as a 2nd order within the 7th order array
+  float omega = 2.0 * PI * freqIn / SAMPLE_RATE;
+  float alpha = sin(omega) / (2.0 * Q_FACTOR);
+  float cosw = cos(omega);
+  float norm = 32768.0 / (1.0 + alpha);
+
+  b[0] = (int32_t)(alpha * norm);
+  b[1] = 0;
+  b[2] = (int32_t)(-alpha * norm);
+  a[0] = 32768;
+  a[1] = (int32_t)(-2.0 * cosw * norm);
+  a[2] = (int32_t)((1.0 - alpha) * norm);
+
+  // Reset higher order terms for now to ensure stability
+  for(int i=3; i<=FILTER_ORDER; ++i) { b[i] = 0; a[i] = 0; }
   
   // Update the filter state and get the filtered output value
   int16_t audioOut = updateFilter(audioIn);

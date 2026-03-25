@@ -17,10 +17,10 @@
 #define PI 3.14159 // Pi constant
 
 // Declare the filter coefficients and states
-float b[N+1]; // Feedforward coefficients
-float a[N+1]; // Feedback coefficients
-float x[N+1]; // Input states
-float y[N+1]; // Output states
+float glob_b[N+1]; // Feedforward coefficients
+float glob_a[N+1]; // Feedback coefficients
+float glob_x[N+1]; // Input states
+float glob_y[N+1]; // Output states
 
 // Declare the frequency and Q variables
 float f; // Center frequency in Hz
@@ -50,8 +50,8 @@ void setup() {
 
   // Initialize the filter states to zero
   for (int i = 0; i <= N; i++) {
-    x[i] = 0;
-    y[i] = 0;
+    glob_x[i] = 0;
+    glob_y[i] = 0;
   }
 }
 
@@ -66,39 +66,30 @@ void loop() {
   in = round(in / (1024 / q)) * (1024 / q);
 
   // Calculate the filter coefficients
-  float w0 = 2 * PI * f / FS; // Angular frequency
-  float alpha = sin(w0) / (2 * Q); // Alpha parameter
-  float norm = 1 / (1 + alpha); // Normalization factor
-  b[0] = alpha * norm; // b0 coefficient
-  b[1] = 0; // b1 coefficient
-  b[2] = -alpha * norm; // b2 coefficient
-  a[0] = 1; // a0 coefficient
-  a[1] = -2 * cos(w0) * norm; // a1 coefficient
-  a[2] = (1 - alpha) * norm; // a2 coefficient
+  float w0 = 2.0f * PI * f / FS; // Angular frequency
+  float alpha = sin(w0) / (2.0f * Q); // Alpha parameter
+  float cosw = cos(w0);
+  float norm = 1.0f / (1.0f + alpha);
+  glob_b[0] = alpha * norm; // b0 coefficient
+  glob_b[1] = 0; // b1 coefficient
+  glob_b[2] = -alpha * norm; // b2 coefficient
+  glob_a[0] = 1.0f; // a0 coefficient
+  glob_a[1] = -2.0f * cosw * norm; // a1 coefficient
+  glob_a[2] = (1.0f - alpha) * norm; // a2 coefficient
 
   // Apply the filter
-  // y[0] = b[0]*x[0] + b[1]*x[1] + b[2]*x[2] - a[1]*y[1] - a[2]*y[2]
-  // a[0] is already 1, so we don't divide
-  float current_y = 0;
-  for (int i = 0; i <= N; i++) {
-    current_y += b[i] * x[i];
-  }
-  for (int i = 1; i <= N; i++) {
-    current_y -= a[i] * y[i];
-  }
+  float current_x = (in - 2048) / 2048.0f;
+  float current_y = glob_b[0] * current_x + glob_b[1] * glob_x[1] + glob_b[2] * glob_x[2]
+                  - glob_a[1] * glob_y[1] - glob_a[2] * glob_y[2];
 
   // Shift the filter states
-  for (int i = N; i > 0; i--) {
-    x[i] = x[i-1];
-    y[i] = y[i-1];
-  }
-
-  // Update the filter states
-  x[0] = in - 2048; // Center input signal (12-bit ADC)
-  y[0] = current_y;
+  glob_x[2] = glob_x[1];
+  glob_x[1] = current_x;
+  glob_y[2] = glob_y[1];
+  glob_y[1] = current_y;
 
   // Scale the output value
-  out = constrain((int)y[0] + 128, 0, 255);
+  out = constrain((int)(current_y * 127) + 128, 0, 255);
 
   // Write the output value to the DAC
   dacWrite(AUDIO_OUT, out);

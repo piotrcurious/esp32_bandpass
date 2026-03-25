@@ -49,15 +49,8 @@ void setup() {
   // Initialize the filter variables
   x0 = x1 = x2 = 0;
   y0 = y1 = y2 = 0;
-  fc = 1000.1; // Initial center frequency
-  bw = fc / SEMITONE; // Initial bandwidth
-  q = fc / bw; // Initial Q factor
-  k = tan(PI * fc / FS); // Initial frequency warping constant
-  b0 = B_COEFF0; // Initial feedforward coefficient 0
-  b1 = B_COEFF1; // Initial feedforward coefficient 1
-  b2 = B_COEFF2; // Initial feedforward coefficient 2
-  a1 = A_COEFF1; // Initial feedback coefficient 1
-  a2 = A_COEFF2; // Initial feedback coefficient 2
+  fc = 0;
+  q = 0;
 }
 
 void loop() {
@@ -85,7 +78,6 @@ void loop() {
     fc = freq;
     q = q_factor;
 
-    // Update the filter coefficients using the bilinear transform method
     // Standard Bandpass Filter coefficients (Constant Peak Gain)
     // Reference: https://cycling74.com/forums/rbj-audio-eq-cookbook
     float omega = 2.0 * PI * fc / FS;
@@ -101,17 +93,16 @@ void loop() {
 
   // Apply the filter to the input sample
   x0 = audio; // Store the current input sample
-  float current_y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Calculate the current output sample
+  y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; // Calculate the current output sample
 
   // Update the filter states
   x2 = x1; // Shift the input samples
   x1 = x0;
   y2 = y1; // Shift the output samples
-  y1 = current_y0;
-  y0 = current_y0;
+  y1 = y0;
 
   // Map the output sample to the DAC range
-  int audio_out = constrain((int)fmap(y0, -1.0, 1.0, 0, 255), 0, 255);
+  int audio_out = (int)constrain(y0 * 127 + 128, 0, 255);
 
   // Write the output sample to the DAC
   dacWrite(AUDIO_OUT, audio_out);
